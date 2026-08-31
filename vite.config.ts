@@ -4,5 +4,5 @@ import { flue } from '@flue/vite';
 // flue() プラグインが 'use agent' ディレクティブを持つファイルをスキャンし、
 // エージェントの登録・ビルドを自動化する。
 export default defineConfig({
-  plugins: [flue()],
+  plugins: [flue({ providers: ['deepseek'] })],
 });

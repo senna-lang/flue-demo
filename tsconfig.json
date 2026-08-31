@@ -9,5 +9,5 @@
     "allowImportingTsExtensions": true,
     "types": ["vite/client"]
   },
-  "include": ["agents", "tools", "skills", "channels", "app.ts", "db.ts", "flue.config.ts"]
+  "include": ["agents", "tools", "skills", "channels", "domain", "prompts", "app.ts", "db.ts", "flue.config.ts"]
 }

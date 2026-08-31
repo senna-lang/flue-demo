@@ -1,21 +1,26 @@
 /**
  * GitHub CLI (`gh`) をラップしたツール定義。
  *
- * defineTool() で定義し、エージェント側で useTool(...) してマウントする。
- * `gh` はサンドボックス（ここでは local()）内で認証済みである前提。
- * コメント投稿は channels/github.ts の Octokit ベースの
- * postReviewComment(ref) を使う（trusted codeが投稿先repo/PRを固定するため）。
+ * owner/repo は trusted code が固定する。コメント投稿は
+ * channels/github.ts の Octokit ベースの postReviewComment(ref) を使う。
  */
+import { execFileSync } from 'node:child_process';
 import { defineTool } from '@flue/runtime';
 import * as v from 'valibot';
+import { githubCliEnv } from './github-auth.ts';
 
-export const getPullRequestDiff = defineTool({
-  name: 'get_pull_request_diff',
-  description: '指定したPR番号のdiffを取得する。',
-  input: v.object({ prNumber: v.number() }),
-  async run({ data }) {
-    const { execSync } = await import('node:child_process');
-    const diff = execSync(`gh pr diff ${data.prNumber}`, { encoding: 'utf-8' });
-    return { output: diff };
-  },
-});
+export function getPullRequestDiff(ref: { owner: string; repo: string; prNumber: number }) {
+  return defineTool({
+    name: 'get_pull_request_diff',
+    description: 'このエージェントに紐づくPRのdiffを取得する。',
+    input: v.object({}),
+    async run() {
+      const diff = execFileSync(
+        'gh',
+        ['pr', 'diff', String(ref.prNumber), '--repo', `${ref.owner}/${ref.repo}`],
+        { encoding: 'utf-8', env: githubCliEnv() },
+      );
+      return { output: diff };
+    },
+  });
+}
