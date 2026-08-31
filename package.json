@@ -5,8 +5,10 @@
   "scripts": {
     "dev": "vite dev",
     "run": "flue run agents/pr-review.ts",
+    "demo": "flue run agents/pr-review.ts --id demo-deepseek --data \"$(cat fixtures/demo-pr.json)\" --message \"このPRをレビューせよ\"",
     "build": "vite build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test agents/*.test.ts domain/*.test.ts prompts/*.test.ts tools/*.test.ts"
   },
   "dependencies": {
     "@flue/github": "^2.0.3",

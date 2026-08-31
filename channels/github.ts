@@ -2,24 +2,35 @@
  * GitHub Webhookの検証済み受け口。
  *
  * pull_request(opened / reopened / synchronize) を PrReview エージェントへ
- * dispatch する。コメント投稿はOctokitのtoolとして提供し、モデルは本文だけ
- * 選び、対象repo/PR番号はtrusted codeが固定する。
+ * dispatch する。deliveryId はアプリ側ログで重複排除する。
+ * コメント投稿は tools/review-comment.ts。このモジュールは app.ts からのみ読む。
  */
 import { createGitHubChannel } from '@flue/github';
-import { defineTool, dispatch } from '@flue/runtime';
-import { Octokit } from '@octokit/rest';
-import * as v from 'valibot';
+import { dispatch } from '@flue/runtime';
 import { PrReview } from '../agents/pr-review.ts';
-
-export const client = new Octokit({ auth: process.env.GITHUB_TOKEN });
+import { claimDeliveryId } from '../domain/claim-delivery-id.ts';
+import { shouldDispatchPullRequest } from '../domain/should-dispatch-pull-request.ts';
+import { loadDeliveryIds, saveDeliveryIds } from './delivery-log.ts';
 
 export const channel = createGitHubChannel({
-  webhookSecret: process.env.GITHUB_WEBHOOK_SECRET!,
+  webhookSecret: process.env.GITHUB_WEBHOOK_SECRET ?? '',
+
 
   // Path: /channels/github/webhook
   async webhook({ delivery }) {
     if (delivery.name !== 'pull_request') return undefined;
-    if (!['opened', 'reopened', 'synchronize'].includes(delivery.payload.action)) return undefined;
+    if (
+      !shouldDispatchPullRequest({
+        eventName: delivery.name,
+        action: delivery.payload.action,
+      })
+    ) {
+      return undefined;
+    }
+
+    const claim = claimDeliveryId(loadDeliveryIds(), delivery.deliveryId);
+    if (!claim.accepted) return undefined;
+    saveDeliveryIds(claim.recorded);
 
     const { repository, pull_request, installation } = delivery.payload;
     const prRef = {
@@ -49,6 +60,7 @@ export const channel = createGitHubChannel({
           owner: prRef.owner,
           repo: prRef.repo,
           prNumber: String(prRef.issueNumber),
+          headSha: pull_request.head.sha,
         },
       },
     });
@@ -56,19 +68,3 @@ export const channel = createGitHubChannel({
   },
 });
 
-export function postReviewComment(ref: { owner: string; repo: string; prNumber: number }) {
-  return defineTool({
-    name: 'post_review_comment',
-    description: 'このエージェントに紐づくPRにレビューコメントを投稿する。',
-    input: v.object({ body: v.pipe(v.string(), v.minLength(1)) }),
-    async run({ data }) {
-      const result = await client.rest.issues.createComment({
-        owner: ref.owner,
-        repo: ref.repo,
-        issue_number: ref.prNumber,
-        body: data.body,
-      });
-      return { output: { commentId: result.data.id } };
-    },
-  });
-}
