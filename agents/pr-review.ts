@@ -61,7 +61,7 @@ function signalAttribute(delivery: DeliveredMessage, key: string): string | unde
 }
 
 export function PrReview() {
-  useModel('deepseek/deepseek-v4-flash');
+  useModel('deepseek/deepseek-v4-pro', { thinkingLevel: 'high' });
 
   const data = useInitialData<v.InferOutput<typeof initialData>>();
   if (!data) throw new Error('このエージェントは channels/github.ts からのdispatchで生成される。');
@@ -92,7 +92,7 @@ export function PrReview() {
     }
   });
 
-  useSandbox(local({ cwd: `/tmp/pr-${data.owner}-${data.repo}-${data.prNumber}` }));
+  useSandbox(local());
 
   useTool(getPullRequestDiff({ owner: data.owner, repo: data.repo, prNumber: data.prNumber }));
   useTool(postReviewComment({ owner: data.owner, repo: data.repo, prNumber: data.prNumber }));
